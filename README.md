@@ -1,4 +1,4 @@
-## SWE5006 Capstone Project: Kahoot Clone
+## SWE5006 Capstone Project: Kahoot Quiz Clone
 
 This repository contains the capstone project for SWE5006 - Graduate Certificate in Designing Modern Software Systems (DMSS) at the National University of Singapore (NUS).
 
