@@ -22,7 +22,7 @@ export default function GameOver({
       <button
         onClick={onRestart}
         data-testid="restart-button"
-        className="mt-6 inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors≈"
+        className="mt-6 inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
       >
         Play Again
       </button>

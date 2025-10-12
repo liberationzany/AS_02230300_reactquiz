@@ -6,34 +6,69 @@ import { GameState } from "./types/quiz";
 import { QUESTIONS } from "./data/questions";
 import Timer from "./components/timer";
 
+// detect if running in test mode
+const TEST_MODE = import.meta.env.VITE_TEST === "true";
+const INITIAL_TIME = TEST_MODE ? 5 : 30; // 5s in tests, 30s normally
+
 function App() {
   const [gameState, setGameState] = useState<GameState>("start");
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<number>(0);
   const [score, setScore] = useState<number>(0);
-  const [timeLeft, setTimeLeft] = useState<number>(300);
+
+  // ✅ Use shorter timer in test mode (5s instead of 30s)
+  const [timeLeft, setTimeLeft] = useState<number>(TEST_MODE ? 5 : 30);
+  const [isStarting, setIsStarting] = useState<boolean>(false);
+
+  console.log("🚀 Timer starts at:", INITIAL_TIME, "seconds (TEST_MODE:", TEST_MODE, ")");
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (gameState === "playing" && timeLeft > 0) {
       timer = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setGameState("end");
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
-    } else if (timeLeft === 0 && gameState === "playing") {
-      setGameState("end");
     }
     return () => clearInterval(timer);
-  }, [timeLeft, gameState]);
+  }, [gameState, timeLeft]);
 
-  const handleStart = () => {
-    setGameState("playing");
-    setTimeLeft(30);
+  const handleStart = async () => {
+    if (!isStarting) {
+      setIsStarting(true);
+    }
+
+    setTimeout(() => {
+      if (gameState === "start") {
+        setGameState("playing");
+        setTimeLeft(INITIAL_TIME);
+      
+        setScore(0);
+        setCurrentQuestion(0);
+        setSelectedAnswer(null);
+      }
+      setIsStarting(false);
+    }, 100);
+  };
+
+  const handleRestart = () => {
+    setGameState("start");
     setScore(0);
     setCurrentQuestion(0);
     setSelectedAnswer(null);
+    setTimeLeft(INITIAL_TIME);
+
+    setIsStarting(false);
   };
 
   const handleAnswer = (index: number): void => {
+    if (selectedAnswer !== null) return; // Prevent multiple selections
+
     setSelectedAnswer(index);
     const isCorrect = index === QUESTIONS[currentQuestion].correct;
 
@@ -74,12 +109,14 @@ function App() {
           <GameOver
             score={score}
             totalQuestions={QUESTIONS.length}
-            onRestart={handleStart}
+            onRestart={handleRestart}
           />
         )}
       </div>
     </div>
   );
 }
+
+
 
 export default App;

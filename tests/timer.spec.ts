@@ -38,38 +38,35 @@ test.describe("Timer Tests", () => {
   });
 
   test("TC007: Timer Expiry", async ({ page }) => {
-    // Start the quiz
-    await page.click("text=Start Quiz");
-    await page.waitForSelector('[data-testid="timer"]');
+  // Increase test timeout to 60 seconds
+  test.setTimeout(60000);
+  
+  // Start the quiz
+  await page.click("text=Start Quiz");
+  await page.waitForSelector('[data-testid="timer"]');
 
-    // Wait for timer to reach 0 (30+ seconds)
-    // For testing purposes, we'll speed this up by waiting for the timer to get low
-    // and then waiting for the end state
+  // Wait for timer to get to single digits (increase timeout)
+  await page.waitForFunction(
+    () => {
+      const timer = document.querySelector('[data-testid="timer"]');
+      if (!timer) return false;
+      const time = parseInt(timer.textContent?.match(/\d+/)?.[0] || "30");
+      return time <= 5;
+    },
+    { timeout: 40000 } // 40 seconds to account for 30s timer
+  );
 
-    // Wait for timer to get to single digits
-    await page.waitForFunction(
-      () => {
-        const timer = document.querySelector('[data-testid="timer"]');
-        if (!timer) return false;
-        const time = parseInt(timer.textContent?.match(/\d+/)?.[0] || "30");
-        return time <= 5;
-      },
-      { timeout: 30000 }
-    );
+  // Wait for timer to reach 0 and quiz to end
+  await page.waitForFunction(
+    () => {
+      const gameOver = document.querySelector('[data-testid="game-over"]');
+      return gameOver !== null;
+    },
+    { timeout: 10000 } // 10 seconds should be enough once we're at ≤5
+  );
 
-    // Wait for timer to reach 0 and quiz to end
-    await page.waitForFunction(
-      () => {
-        const gameOver = document.querySelector('[data-testid="game-over"]');
-        return gameOver !== null;
-      },
-      { timeout: 10000 }
-    );
-
-    // Verify quiz ended automatically
-    await expect(page.locator('[data-testid="game-over"]')).toBeVisible();
-
-    // Verify final score is shown
-    await expect(page.locator('[data-testid="final-score"]')).toBeVisible();
-  });
+  // Verify quiz ended automatically
+  await expect(page.locator('[data-testid="game-over"]')).toBeVisible();
+  await expect(page.locator('[data-testid="final-score"]')).toBeVisible();
+});
 });

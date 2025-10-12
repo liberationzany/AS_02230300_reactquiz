@@ -3,14 +3,17 @@ import { TimerIcon } from "lucide-react";
 interface TimerProps {
   timeLeft: number;
 }
+
 export default function Timer({ timeLeft }: TimerProps) {
   return (
     <div
-      className="flex items-center justify-center space-x-2 text-2xl font-bold text-gray-700 mb-8"
       data-testid="timer"
+      className={`flex items-center justify-center space-x-2 text-2xl font-bold mb-8 ${
+        timeLeft <= 10 ? 'text-red-600' : 'text-gray-700'
+      }`}
     >
       <TimerIcon className="w-6 h-6" />
-      <span>{timeLeft}s</span>
+      <span data-testid="timer-value">{timeLeft}s</span>
     </div>
   );
 }
