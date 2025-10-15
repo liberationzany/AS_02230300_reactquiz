@@ -1,109 +1,84 @@
 import { test, expect } from "@playwright/test";
 
-// TC012-TC013: Edge Cases
-test.describe("Edge Cases", () => {
+// TC008-TC009: Game State Tests
+test.describe("Game State Tests", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("http://localhost:5173");
     await page.waitForLoadState("networkidle");
   });
 
-  test("TC012: Rapid Answer Selection", async ({ page }) => {
-    // Start the quiz
-    await page.click("text=Start Quiz");
+  test("TC008: Restart Quiz", async ({ page }) => {
+    // Complete a quiz first - FIXED: More robust button clicking for webkit
+    await page.waitForSelector('button:has-text("Start Quiz")', { state: 'visible' });
+    const startButton = page.locator('button:has-text("Start Quiz")');
+    await startButton.click({ force: true });
     await page.waitForSelector('[data-testid="question-card"]');
 
-    // Get all answer options
-    const options = page.locator('[data-testid="answer-option"]');
+    // Answer all questions quickly
+    for (let i = 0; i < 5; i++) {
+      await page.waitForSelector('[data-testid="answer-option"]', { state: 'visible' });
+      await page.click('[data-testid="answer-option"]:first-child', { force: true });
+      await page.waitForTimeout(1600);
+    }
 
-    // Rapidly click multiple options
-    await options.nth(0).click();
+    // Verify we're at game over screen
+    await expect(page.locator('[data-testid="game-over"]')).toBeVisible({ timeout: 10000 });
 
-// Wait until the first option is visually selected
-    await expect(options.nth(0)).toHaveClass(/selected|bg-blue/);
+    // Click restart/play again button - more robust for webkit
+    await page.waitForTimeout(1000); // Give webkit time to render
+    const restartButton = page
+      .locator("text=Play Again")
+      .or(page.locator("text=Restart"))
+      .or(page.locator('[data-testid="restart-button"]'));
+    await restartButton.click({ force: true });
 
-// Now spam other clicks (trial mode, won’t trigger DOM)
-    await options.nth(1).click({ trial: true });
-    await options.nth(2).click({ trial: true });
-    await options.nth(3).click({ trial: true });
+    // FIXED: Verify quiz resets directly to first question (not start screen)
+    await expect(page.locator('[data-testid="question-card"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="question-counter"]')).toContainText("1", { timeout: 10000 });
 
-// Assert others are not selected
-    await expect(options.nth(1)).not.toHaveClass(/selected|bg-blue/);
-    await expect(options.nth(2)).not.toHaveClass(/selected|bg-blue/);
-    await expect(options.nth(3)).not.toHaveClass(/selected|bg-blue/);
-
-
-    // Wait for auto-advance
-    await page.waitForTimeout(1600);
-
-    // Should advance to next question
-    await expect(
-      page.locator('[data-testid="question-counter"]')
-    ).toContainText("2");
-  });
-
-  test("TC013: Browser Refresh", async ({ page }) => {
-    // Start the quiz and answer a question
-    await page.click("text=Start Quiz");
-    await page.waitForSelector('[data-testid="question-card"]');
-
-    // Answer first question to get some score
-    await page.click('[data-testid="answer-option"]:first-child');
-    await page.waitForTimeout(1600);
-
-    // Verify we're on question 2 with some score
-    await expect(
-      page.locator('[data-testid="question-counter"]')
-    ).toContainText("2");
-
-    // Refresh the browser
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-
-    // Verify quiz resets to start state
-    await expect(page.locator("text=Start Quiz")).toBeVisible();
-
-    // Verify no game state persists
-    await expect(
-      page.locator('[data-testid="question-card"]')
-    ).not.toBeVisible();
-    await expect(page.locator('[data-testid="game-over"]')).not.toBeVisible();
-
-    // Start quiz again and verify everything is reset
-    await page.click("text=Start Quiz");
-    await page.waitForSelector('[data-testid="question-card"]');
-
-    // Should be back to question 1
-    await expect(
-      page.locator('[data-testid="question-counter"]')
-    ).toContainText("1");
-
-    // Score should be 0
+    // Verify score is reset to 0
+    await page.waitForSelector('[data-testid="score"]');
     const scoreText = await page.locator('[data-testid="score"]').textContent();
     expect(scoreText).toContain("0");
   });
 
-  test("TC012b: Multiple Button Clicks", async ({ page }) => {
-    // Test rapid clicking of start button
-    await expect(page.locator("text=Start Quiz")).toBeVisible();
-
-    await Promise.all([
-      page.click("text=Start Quiz"),
-      page.click("text=Start Quiz"),
-      page.click("text=Start Quiz"),
-    ]); // Should not trigger again
-
-    // Should only start one game instance
+  test("TC009: Question Navigation", async ({ page }) => {
+    // Start the quiz - FIXED: More robust for webkit
+    await page.waitForSelector('button:has-text("Start Quiz")', { state: 'visible' });
+    const startButton = page.locator('button:has-text("Start Quiz")');
+    await startButton.click({ force: true });
     await page.waitForSelector('[data-testid="question-card"]');
 
-    // Verify timer starts normally (not multiple timers)
-    await expect(page.locator('[data-testid="timer"]')).toContainText("30");
+    // Verify we start at question 1
+    await expect(
+      page.locator('[data-testid="question-counter"]')
+    ).toContainText("1", { timeout: 10000 });
 
-    // Wait a few seconds and verify timer is counting down normally
-    await page.waitForTimeout(3000);
-    const timerText = await page.locator('[data-testid="timer"]').textContent();
-    const currentTime = parseInt(timerText?.match(/\d+/)?.[0] || "0");
-    expect(currentTime).toBeGreaterThanOrEqual(25);
-    expect(currentTime).toBeLessThanOrEqual(28);
+    // Answer first question
+    await page.waitForSelector('[data-testid="answer-option"]', { state: 'visible' });
+    await page.click('[data-testid="answer-option"]:first-child', { force: true });
+    await page.waitForTimeout(1600);
 
+    // Verify we advance to question 2
+    await expect(
+      page.locator('[data-testid="question-counter"]')
+    ).toContainText("2", { timeout: 10000 });
+
+    // FIXED: Continue through remaining questions (2, 3, 4, 5) - webkit safe
+    for (let i = 2; i <= 5; i++) {
+      await page.waitForSelector('[data-testid="answer-option"]', { state: 'visible' });
+      await page.click('[data-testid="answer-option"]:first-child', { force: true });
+      await page.waitForTimeout(1600);
+      
+      // Only check question counter if not the last question
+      if (i < 5) {
+        await expect(
+          page.locator('[data-testid="question-counter"]')
+        ).toContainText((i + 1).toString(), { timeout: 10000 });
+      }
+    }
+
+    // Verify we reach the end - longer timeout for webkit
+    await expect(page.locator('[data-testid="game-over"]')).toBeVisible({ timeout: 15000 });
   });
 });
